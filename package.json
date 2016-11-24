@@ -1,0 +1,21 @@
+{
+  "name": "high-risers",
+  "version": "1.0.0",
+  "description": "High Risers",
+  "main": "index.js",
+  "scripts": {
+    "lint": "./node_modules/.bin/eslint scripts/",
+    "dev": "lite-server"
+  },
+  "keywords": [
+    "html5",
+    "game"
+  ],
+  "author": "Mark Zhou",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^3.10.2",
+    "eslint-config-google": "^0.7.0",
+    "lite-server": "^2.2.2"
+  }
+}

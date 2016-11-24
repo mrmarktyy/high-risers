@@ -1,0 +1,33 @@
+{
+  "env": {
+    "browser": true,
+    "amd": true
+  },
+  "extends": ["google"],
+  "rules": {
+    "require-jsdoc": [
+      "off", { "require": {
+        "FunctionDeclaration": true,
+        "MethodDefinition": true,
+        "ClassDeclaration": true
+      }
+    }],
+    "max-len": [
+      "warn", 120
+    ],
+    "no-debugger": 0,
+    "no-var": 0,
+    "no-warning-comments": 0,
+    "one-var": 0,
+    "no-implicit-coercion": 0,
+    "camelcase": 0,
+    "no-mixed-spaces-and-tabs": 1,
+    "quotes": [
+      "error", "single", { "avoidEscape": true, "allowTemplateLiterals": true }
+    ],
+    "no-multi-spaces": [
+      "error", { "exceptions": { "VariableDeclarator": true, "ImportDeclaration": true } }
+    ],
+    "comma-dangle": 0,
+  }
+}
