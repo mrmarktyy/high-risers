@@ -3,6 +3,16 @@ body {
   font-family: '微软雅黑', 'Helvetica', 'Arial', sans-serif;
 }
 
+/* misc */
+.overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
 .btn-round {
   border-radius: 50%;
   width: 4rem;
@@ -14,8 +24,8 @@ body {
 }
 
 .btn-round img {
-  width: 2.5rem;
   position: absolute;
+  width: 2.5rem;
   left: 50%;
   top: 50%;
   -webkit-transform: translate3d(-50%, -50%, 0);
@@ -25,49 +35,39 @@ body {
 #main {
   position: relative;
   margin: 0 auto;
-  border: 1px solid #eee;
   overflow: hidden;
   background-image: url('../images/bg1.gif');
   background-position: center bottom;
   background-repeat: no-repeat;
 }
 
-.overlay {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-}
-
 #level {
   font-family: 'backto1982', '微软雅黑', 'Helvetica', 'Arial', sans-serif;
+  position: absolute;
   text-align: center;
   left: 0;
   right: 0;
   top: 1.3rem;
   margin: 0;
-  position: absolute;
 }
 
-#pause {
+.btn-pause {
   position: absolute;
   top: 0;
   right: 0;
-  -webkit-transition: -webkit-transform 0.5s linear;
-          transition: transform 0.5s linear;
   margin: 1rem;
   width: 2.5rem;
   height: 2.5rem;
   box-shadow: 5px 5px 5px 0px rgba(0, 0, 0, 0.75);
+  -webkit-transition: -webkit-transform 0.5s linear;
+          transition: transform 0.5s linear;
 }
 
-#pause img {
+.btn-pause img {
   width: 2rem;
 }
 
-#pause.out {
+.btn-pause.out {
   -webkit-transform: translate3d(0, -4rem, 0);
           transform: translate3d(0, -4rem, 0);
 }

@@ -1,5 +1,8 @@
 'use strict';
 
+var __DEFAULT_VIEWPORT_WIDTH__  =  375;
+var __DEFAULT_VIEWPORT_HEIGHT__ = 667;
+
 function Game(options) {
   this.canvasWidth = options.canvasWidth;
   this.canvasHeight = options.canvasHeight;
@@ -28,15 +31,16 @@ function Game(options) {
   this.config = {
     game: {
       groundBase: 120,
-      totalLevel: 30,
+      initialLevel: 30,
     },
     player: {
       width: 20,
       height: 30,
-      velocity: 3,
+      velocity: 3.5,
       jumpForce: -0.021,
       options: {
         isPlayer: true, inertia: Infinity, restitution: 1, friction: 0, frictionStatic: 0, frictionAir: 0,
+        collisionFilter: {group: -1},
         render: {
           sprite: {
             yOffset: 0.1
@@ -92,9 +96,15 @@ function Game(options) {
     $('.btn-play').click(this.play.bind(this));
 
     this.reset();
+    this.run();
     this.renderViews();
 
     return this;
+  };
+
+  this.run = function() {
+    Matter.Runner.run(this.runner, this.engine);
+    Matter.Render.run(this.render);
   };
 
   this.reset = function() {
@@ -103,9 +113,15 @@ function Game(options) {
       player: {},
       levels: [],
       currentLevel: 0,
+      cameraTarget: {
+        x: 0,
+        y: 0
+      },
+      cachedFloors: [],
       paused: false,
       started: false,
       views: {
+        backgroundPositionY: 100,
         actions: false,
         title: true
       }
@@ -166,14 +182,18 @@ function Game(options) {
     });
 
     var floorOffset = 0;
-    for (var level = 1; level <= this.config.game.totalLevel; level++) {
+    for (var level = 1; level <= this.config.game.initialLevel; level++) {
       var levelBase = this.canvasHeight - level * (this.config.wall.height + this.config.floor.height);
       var floorMidX = this.canvasWidth / 2 + floorOffset;
       this.globalState.levels[level] = {
         floor: this.spawnFloor(
           floorMidX,
           levelBase + this.config.floor.height / 2,
-          {level: level, minX: floorMidX - this.config.floor.width / 2, maxX: floorMidX + this.config.floor.width / 2}
+          {
+            level: level,
+            minX: floorMidX - this.config.floor.width / 2, maxX: floorMidX + this.config.floor.width / 2,
+            collisionFilter: {group: -1}
+          }
         )
       };
       if (Math.random() > 0.45) {
@@ -193,13 +213,6 @@ function Game(options) {
     }
 
     Matter.Body.setVelocity(this.player, {x: this.config.player.velocity, y: 0});
-
-    this.setViewportCenter({x: 0, y: 0});
-  };
-
-  this.run = function() {
-    Matter.Runner.run(this.runner, this.engine);
-    Matter.Render.run(this.render);
   };
 
   this.pause = function(event) {
@@ -219,20 +232,17 @@ function Game(options) {
       this.globalState.paused = false;
       this.globalState.views.actions = false;
       this.runner.enabled = true;
-
-      this.renderViews();
-      return;
-    }
-
-    if (!this.globalState.player.alive) {
+    } else if (!this.globalState.player.alive) {
       this.reset();
-      this.renderViews();
-      return;
     }
+
+    this.renderViews();
   };
 
   this.climbUp = function(level) {
     this.globalState.currentLevel = level;
+    this.globalState.views.backgroundPositionY -= 0.1;
+    this.globalState.cachedFloors.push(level);
 
     this.renderViews();
   };
@@ -240,22 +250,25 @@ function Game(options) {
   this.dead = function() {
     this.globalState.player.alive = false;
     this.globalState.views.actions = true;
+    this.globalState.started = false;
     this.globalState.paused = false;
 
     this.renderViews();
   };
 
   this.clearWorld = function() {
-    Matter.Composite.allBodies(this.world).forEach(function(matter) {
-      Matter.World.remove(this.world, matter);
-    }.bind(this));
+    Matter.Composite.allBodies(this.world).forEach(this.removeMatter.bind(this));
+  };
+
+  this.removeMatter = function(matter) {
+    Matter.World.remove(this.world, matter);
   };
 
   this.spawnPlayer = function(x, y, options) {
     return this.addToWorld(Matter.Bodies.rectangle(
       x, y - this.config.game.groundBase,
       this.config.player.width, this.config.player.height,
-      Object.assign(this.config.player.options, options)
+      Object.assign({}, this.config.player.options, options)
     ));
   };
 
@@ -263,7 +276,7 @@ function Game(options) {
     return this.addToWorld(Matter.Bodies.rectangle(
       x, y - this.config.game.groundBase,
       this.config.wall.width, this.config.wall.height,
-      Object.assign(this.config.wall.options, options)
+      Object.assign({}, this.config.wall.options, options)
     ));
   };
 
@@ -271,7 +284,7 @@ function Game(options) {
     return this.addToWorld(Matter.Bodies.rectangle(
       x, y - this.config.game.groundBase,
       this.config.floor.width, this.config.floor.height,
-      Object.assign(this.config.floor.options, options)
+      Object.assign({}, this.config.floor.options, options)
     ));
   };
 
@@ -279,7 +292,7 @@ function Game(options) {
     return this.addToWorld(Matter.Bodies.rectangle(
       x, y - this.config.game.groundBase,
       this.canvasWidth, this.config.floor.height,
-      Object.assign(this.config.floor.options, options)
+      Object.assign({}, this.config.floor.options, options)
     ));
   };
 
@@ -290,10 +303,14 @@ function Game(options) {
 
   this.onClick = function(event) {
     if (event.which !== 1) return;
+    if (!this.globalState.player.alive) return;
+
     this.player.jump();
   };
 
   this.onTouchStart = function() {
+    if (!this.globalState.player.alive) return;
+
     this.player.jump();
   };
 
@@ -303,14 +320,11 @@ function Game(options) {
       .setVerticalDirection()
       .setVerticalVelocity()
       .setSprite()
+      .setCameraTarget()
+      .checkClimbUp()
       .setCollisionFilterGroup();
 
-    if (this.globalState.player.alive) {
-      this.setViewportCenter({
-        x: 0,
-        y: ~~this.player.position.y - this.globalState.player.initialPosition.y
-      });
-    }
+    this.updateCamera();
 
     if (this.globalState.player.alive && !this.checkAlive()) {
       this.dead();
@@ -324,15 +338,15 @@ function Game(options) {
 
       if ((m1.isPlayer && m2.isFloor) || (m1.isFloor && m2.isPlayer)) {
         this.globalState.player.isOnGround = true;
-        if (this.globalState.player.direction === 1 && m2.level > this.globalState.currentLevel) {
-          this.climbUp(m2.level);
-        }
       }
     }
   };
 
-  this.setViewportCenter = function(shift) {
-    Matter.Bounds.shift(this.render.bounds, {x: shift.x, y: shift.y});
+  this.updateCamera = function() {
+    Matter.Bounds.shift(this.render.bounds, {
+      x: 9 * this.render.bounds.min.x / 10 + this.globalState.cameraTarget.x / 10,
+      y: 9 * this.render.bounds.min.y / 10 + this.globalState.cameraTarget.y / 10
+    });
   };
 
   this.checkAlive = function() {
@@ -340,9 +354,7 @@ function Game(options) {
     var validMinX = currentFloor.minX - this.config.player.width / 2;
     var validMaxX = currentFloor.maxX + this.config.player.width / 2;
 
-    if (this.player.position.x >= validMinX && this.player.position.x <= validMaxX) return true;
-
-    return false;
+    return this.player.position.x >= validMinX && this.player.position.x <= validMaxX;
   };
 
   this.renderViews = function() {
@@ -362,9 +374,12 @@ function Game(options) {
     } else {
       $('#pause').removeClass('out');
     }
+    $('#main').css('background-position-y', this.globalState.views.backgroundPositionY + '%');
   };
 
   this.getFloor = function(level) {
+    if (!this.globalState.levels[level]) return;
+
     return this.globalState.levels[level].floor;
   };
 }
@@ -384,7 +399,7 @@ function Player(game) {
   };
 
   this.setVerticalDirection = function() {
-    if (Math.abs(this.velocity.y) < 0.01) {
+    if (Math.abs(this.velocity.y) < 0.6) {
       this.state.direction = 0;
     } else {
       this.state.direction = this.velocity.y > 0 ? 1 : -1;
@@ -422,52 +437,72 @@ function Player(game) {
     return this;
   };
 
-  this.setCollisionFilterGroup = function() {
-    this.collisionFilter.group =
-      this.game.getFloor(this.globalState.currentLevel + 1).collisionFilter.group =
-      this.state.direction;
+  this.setCameraTarget = function() {
+    if (this.state.alive &&
+      ~~this.position.y - this.state.initialPosition.y < this.globalState.cameraTarget.y) {
+      this.globalState.cameraTarget.y = ~~this.position.y - this.state.initialPosition.y;
+    }
     return this;
   };
 
-  this.setRenderBounds = function() {
-    if (!this.state.alive) return;
+  this.checkClimbUp = function() {
+    var nextFloor = this.game.getFloor(this.globalState.currentLevel + 1);
+    if (this.position.y < nextFloor.position.y) {
+      this.game.climbUp(nextFloor.level);
+    }
+    return this;
+  };
 
-    var shift = ~~this.position.y - this.state.initialPosition.y;
-    console.log(this.game.render.bounds.min.y);
-    if (shift) {
-      Matter.Bounds.shift(this.game.render.bounds, {x: 0, y: shift});
+  this.setCollisionFilterGroup = function() {
+    if (this.state.direction === 1 && this.globalState.cachedFloors.length) {
+      this.globalState.cachedFloors.forEach(function(level) {
+        this.game.getFloor(level).collisionFilter.group = 0;
+      }.bind(this));
+      this.globalState.cachedFloors = [];
     }
     return this;
   };
 
   this.jump = function() {
-    if (!this.state.isOnGround) return;
-    if (!this.globalState.started) this.globalState.started = true;
+    if (!this.globalState.started) {
+      this.globalState.started = true;
+      this.globalState.views.title = false;
+    }
 
-    this.state.cachedForce.y = this.game.config.player.jumpForce;
+    // console.log(this.state.direction);
+    if (this.state.direction === -1) {
+      this.state.cachedForce.y = -0.01;
+      console.log('j1');
+    } else if (this.state.direction === 1) {
+      this.state.cachedForce.y = -0.02;
+      console.log('j2');
+    } else {
+      this.state.cachedForce.y = this.game.config.player.jumpForce;
+    }
     this.state.isOnGround = false;
-    this.globalState.views.title = false;
 
     this.game.renderViews();
   };
 }
 
-var canvasWidth, canvasHeight;
-if (window.innerWidth > 1000) {
-  canvasWidth = 375;
-  canvasHeight = 667;
-} else {
-  canvasWidth = window.innerWidth;
-  canvasHeight = window.innerHeight;
-}
+$(function() {
+  var canvasWidth, canvasHeight;
+  if (window.innerWidth > 1000) {
+    canvasWidth = __DEFAULT_VIEWPORT_WIDTH__;
+    canvasHeight = __DEFAULT_VIEWPORT_HEIGHT__;
+  } else {
+    canvasWidth = window.innerWidth;
+    canvasHeight = window.innerHeight;
+  }
 
-$('#main').css({
-  width: canvasWidth,
-  height: canvasHeight
+  $('#main').css({
+    width: canvasWidth,
+    height: canvasHeight
+  });
+
+  new Game({
+    canvas: document.getElementById('canvas'),
+    canvasWidth: canvasWidth,
+    canvasHeight: canvasHeight
+  }).init();
 });
-
-new Game({
-  canvas: document.getElementById('canvas'),
-  canvasWidth: canvasWidth,
-  canvasHeight: canvasHeight
-}).init().run();
